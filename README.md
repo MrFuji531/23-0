@@ -1,10 +1,13 @@
-# Full Side and Classic
+# 23-0 — Full Side and Classic
 Local five-player Classic and 23-player Full Side, using the same spin → select → eligible placement loop. Both modes run here; neither redirects to the original site.
 
 ## Run
 - `npm run dev` → http://127.0.0.1:4173
 - `npm test` → thirteen checks including 100 Classic and 100 Full Side drafts
 - `npm run build` → static `dist/` output
+
+## Hosting
+GitHub Pages publishes this game from `.github/workflows/pages.yml`. Each push to `main` runs the engine tests, builds `dist/`, and deploys the resulting static files. The GitHub remote is named `github`; publish source changes with `git push github main`. The earlier Sites remote and configuration are retained for reference.
 
 ## Gameplay and data
 The active `public/game-players.json` adapts the public 23-0 catalogue snapshot from 1 October 2026, retaining candidate stats, ordering inputs and position eligibility. To regenerate, download https://23-0.com/data/players/players.json and run `python3 scripts/build-reference-data.py /path/to/players.json`.
