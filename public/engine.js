@@ -1,12 +1,13 @@
-export const ROWS=[['BACKS',[['BP','DEF'],['FB','DEF'],['BP','DEF']]],['HALF BACKS',[['HBF','DEF'],['CHB','DEF'],['HBF','DEF']]],['CENTRES',[['W','MID'],['C','MID'],['W','MID']]],['FOLLOWERS',[['RUC','RUC'],['RR','MID'],['ROV','MID']]],['HALF FORWARDS',[['HFF','FWD'],['CHF','FWD'],['HFF','FWD']]],['FORWARDS',[['FP','FWD'],['FF','FWD'],['FP','FWD']]],['INTERCHANGE',[['INT 1','INT'],['INT 2','INT'],['INT 3','INT'],['INT 4','INT']]]];
-export const SLOTS=ROWS.flatMap(r=>r[1]).map(([label,role],i)=>({id:i,label,role}));
+export const ROWS=[['BACKS',[['BP','DEF'],['FB','DEF'],['BP','DEF']]],['HALF BACKS',[['HBF','DEF'],['CHB','DEF'],['HBF','DEF']]],['CENTRES',[['W','MID'],['C','MID'],['W','MID']]],['FOLLOWERS',[['RUC','RUC'],['RR','MID'],['ROV','MID']]],['HALF FORWARDS',[['HFF','FWD'],['CHF','FWD'],['HFF','FWD']]],['FORWARDS',[['FP','FWD'],['FF','FWD'],['FP','FWD']]],['INTERCHANGE',[['INT 1','INT'],['INT 2','INT'],['INT 3','INT'],['INT 4','INT'],['INT 5','INT']]]];
+const POSITION_NAMES={BP:'Back pocket',FB:'Full back',HBF:'Half-back flank',CHB:'Centre half-back',W:'Wing',C:'Centre',RUC:'Ruck',RR:'Ruck-rover',ROV:'Rover',HFF:'Half-forward flank',CHF:'Centre half-forward',FP:'Forward pocket',FF:'Full forward'};
+export const SLOTS=ROWS.flatMap(([line,positions])=>positions.map(([label,role])=>({label,role,line,name:POSITION_NAMES[label]||'Interchange'}))).map((slot,id)=>({id,...slot}));
 export const ERAS=[1990,2000,2010,2020];
 export function hash(s){let n=2166136261;for(const c of String(s)){n^=c.charCodeAt(0);n=Math.imul(n,16777619)}return n>>>0}
 export function random(seed){let a=hash(seed);return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 export const CLASSIC_SLOTS=['DEF','MID','RUC','FWD','UTL'].map((role,id)=>({id,label:role,role}));
-export const slotsFor=state=>state.mode==='classic'?CLASSIC_SLOTS:SLOTS;
+export const slotsFor=state=>state.mode==='classic'?CLASSIC_SLOTS:state.legacyRoster?SLOTS.slice(0,22):SLOTS;
 export const eligible=(player,role)=>['INT','UTL'].includes(role)||(player.eligiblePositions||[player.role]).includes(role);
-export function newGame(seed,mode='full'){return {version:2,mode,seed:String(seed).slice(0,64),picks:[],roll:null,clubRerolls:1,eraRerolls:1,counter:0,complete:false}}
+export function newGame(seed,mode='full'){return {version:3,mode,seed:String(seed).slice(0,64),picks:[],roll:null,clubRerolls:1,eraRerolls:1,counter:0,complete:false}}
 export function remaining(state,players){const used=new Set(state.picks.map(p=>p.id));return players.filter(p=>!used.has(p.id))}
 export function roll(state,players,type='both'){
  if(state.complete||state.picks.length>=slotsFor(state).length||!['both','club','era'].includes(type))return null;
@@ -52,8 +53,11 @@ export function swap(state,from,to,players){
  pick.slot=to;
 }
 export function restore(raw,players){
- if(!raw||raw.version!==2||!['classic','full'].includes(raw.mode)||typeof raw.seed!=='string'||raw.seed.length>64||!Array.isArray(raw.picks))throw Error('Invalid saved game.');
- const s=newGame(raw.seed,raw.mode),slots=slotsFor(s),byKey=new Map(players.map(p=>[p.key,p]));let ids=new Set(),usedSlots=new Set();
+ if(!raw||![2,3].includes(raw.version)||!['classic','full'].includes(raw.mode)||typeof raw.seed!=='string'||raw.seed.length>64||!Array.isArray(raw.picks))throw Error('Invalid saved game.');
+ const s=newGame(raw.seed,raw.mode);
+ // Completed 22-player games remain reviewable; new drafts use the current 23.
+ if(raw.mode==='full'&&(raw.version===2&&raw.complete&&raw.picks.length===22||raw.legacyRoster===true&&raw.picks.length===22))s.legacyRoster=true;
+ const slots=slotsFor(s),byKey=new Map(players.map(p=>[p.key,p]));let ids=new Set(),usedSlots=new Set();
  if(raw.picks.length>slots.length)throw Error('Invalid lineup size.');
  for(const pick of raw.picks){const p=byKey.get(pick.key);if(!p||!Number.isInteger(pick.slot)||!slots[pick.slot]||!eligible(p,slots[pick.slot].role)||ids.has(p.id)||usedSlots.has(pick.slot))throw Error('Invalid saved lineup.');ids.add(p.id);usedSlots.add(pick.slot);s.picks.push({key:p.key,id:p.id,club:p.club,era:p.era,slot:pick.slot})}
  for(const k of ['clubRerolls','eraRerolls']){if(!Number.isInteger(raw[k])||raw[k]<0||raw[k]>1)throw Error('Invalid rerolls.');s[k]=raw[k]}
@@ -64,11 +68,13 @@ export function restore(raw,players){
 }
 export function score(state,players){
  if(state.picks.length!==slotsFor(state).length)throw Error('Fill every position first.');
- const valid=restore(state,players),byKey=new Map(players.map(p=>[p.key,p]));let sum=0,weights=0;const lines={};
- for(const pick of valid.picks){const role=slotsFor(state)[pick.slot].role,r=byKey.get(pick.key).ratings[role==='UTL'?'INT':role],w=role==='INT'?.65:1;sum+=r*w;weights+=w;(lines[role]??=[]).push(r)}
+ const valid=restore(state,players),byKey=new Map(players.map(p=>[p.key,p]));let sum=0,weights=0;const lines={},playerRatings=[];
+ for(const pick of valid.picks){const role=slotsFor(state)[pick.slot].role,r=byKey.get(pick.key).ratings[role==='UTL'?'INT':role],w=role==='INT'?.65:1;sum+=r*w;weights+=w;(lines[role]??=[]).push(r);playerRatings.push({key:pick.key,slot:pick.slot,role,rating:r,weight:w})}
  const rating=sum/weights;const lineRatings=Object.fromEntries(Object.entries(lines).map(([r,a])=>[r,Math.round(10*a.reduce((s,v)=>s+v,0)/a.length)/10]));
  // Fixed fictional opposition ladder. No random luck or live AFL prediction.
- const thresholds=Array.from({length:23},(_,i)=>55+i*1.75);const games=thresholds.map((opposition,i)=>({round:i+1,opposition,win:rating>=opposition}));
- const rng=random('schedule-v1');for(let i=games.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[games[i],games[j]]=[games[j],games[i]]}games.forEach((g,i)=>g.round=i+1);
- const wins=games.filter(g=>g.win).length;return{rating:Math.round(rating*10)/10,wins,losses:23-wins,lineRatings,games};
+ const thresholds=Array.from({length:23},(_,i)=>24+i*70/22);const games=thresholds.map((opposition,i)=>({round:i+1,opposition,win:rating>=opposition}));
+ const rng=random('schedule-v2');for(let i=games.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[games[i],games[j]]=[games[j],games[i]]}games.forEach((g,i)=>g.round=i+1);
+ const wins=games.filter(g=>g.win).length;return{rating:Math.round(rating*10)/10,wins,losses:23-wins,lineRatings,playerRatings,model:'role-era-percentile-v2',games};
 }
+
+export function resultGrade(wins){if(wins===23)return{letter:'S',label:'UNDEFEATED',colour:'#059669'};if(wins>=20)return{letter:'A',label:'MINOR-PREMIERSHIP CONTENDER',colour:'#58af98'};if(wins>=16)return{letter:'B',label:'FINALS CONTENDER',colour:'#5589ad'};if(wins>=12)return{letter:'C',label:'IN THE FINALS MIX',colour:'#b48538'};if(wins>=8)return{letter:'D',label:'BUILDING SIDE',colour:'#b87743'};return{letter:'E',label:'BACK TO THE DRAFT BOARD',colour:'#a84b4b'}}

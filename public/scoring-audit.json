@@ -1,0 +1,83 @@
+{
+  "model": "role-era-percentile-v2",
+  "samplesPerStrategy": 250,
+  "notes": "Synthetic game balance check, not validation against real AFL seasons. First means the top games-plus-votes name with a legal slot. Best greedily selects the highest current role rating; it does not search future rolls.",
+  "modes": {
+    "full": {
+      "random": {
+        "meanRating": 52.98,
+        "meanWins": 9.61,
+        "minWins": 6,
+        "maxWins": 14,
+        "medianWins": 10,
+        "twentyPlus": 0,
+        "undefeated": 0
+      },
+      "first": {
+        "meanRating": 81.24,
+        "meanWins": 18.52,
+        "minWins": 16,
+        "maxWins": 21,
+        "medianWins": 19,
+        "twentyPlus": 20,
+        "undefeated": 0
+      },
+      "best": {
+        "meanRating": 91.01,
+        "meanWins": 21.61,
+        "minWins": 21,
+        "maxWins": 22,
+        "medianWins": 22,
+        "twentyPlus": 250,
+        "undefeated": 0
+      },
+      "worst": {
+        "meanRating": 14.33,
+        "meanWins": 0,
+        "minWins": 0,
+        "maxWins": 0,
+        "medianWins": 0,
+        "twentyPlus": 0,
+        "undefeated": 0
+      }
+    },
+    "classic": {
+      "random": {
+        "meanRating": 53.19,
+        "meanWins": 9.68,
+        "minWins": 0,
+        "maxWins": 18,
+        "medianWins": 9,
+        "twentyPlus": 0,
+        "undefeated": 0
+      },
+      "first": {
+        "meanRating": 79.96,
+        "meanWins": 18.08,
+        "minWins": 12,
+        "maxWins": 23,
+        "medianWins": 18,
+        "twentyPlus": 70,
+        "undefeated": 1
+      },
+      "best": {
+        "meanRating": 89.96,
+        "meanWins": 21.23,
+        "minWins": 19,
+        "maxWins": 23,
+        "medianWins": 21,
+        "twentyPlus": 244,
+        "undefeated": 2
+      },
+      "worst": {
+        "meanRating": 17.62,
+        "meanWins": 0.07,
+        "minWins": 0,
+        "maxWins": 2,
+        "medianWins": 0,
+        "twentyPlus": 0,
+        "undefeated": 0
+      }
+    }
+  }
+}
